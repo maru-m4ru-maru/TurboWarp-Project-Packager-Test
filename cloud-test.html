@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TurboWarp Cloud Variable Test</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;background:#f6f7f9;color:#111}
+.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:20px;margin-bottom:16px}
+.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#eee;font-size:13px}
+.value{font-size:48px;font-weight:700;margin:12px 0}
+pre{background:#111;color:#0f0;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap}
+small{color:#666}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>TurboWarp Cloud Variable Test</h1>
+<p><span id="status" class="badge">接続中...</span></p>
+<p>Project ID: <code id="projectId"></code></p>
+<p>Username: <code id="username"></code></p>
+</div>
+<div class="card">
+<h2>☁ score</h2>
+<div id="score" class="value">—</div>
+<small>TurboWarp Cloud WebSocketから外部で受信した値</small>
+</div>
+<div class="card">
+<h2>受信ログ</h2>
+<pre id="log"></pre>
+</div>
+<script>
+const projectId = 'p4-@プロジェクト.sb3';
+const username = 'player' + Math.floor(Math.random()*10000).toString().padStart(4,'0');
+const hosts = ['wss://clouddata.turbowarp.org','wss://clouddata.turbowarp.xyz'];
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+const scoreEl = document.getElementById('score');
+document.getElementById('projectId').textContent = projectId;
+document.getElementById('username').textContent = username;
+function log(x){
+  const line = `[${new Date().toLocaleTimeString()}] ${x}`;
+  logEl.textContent = line + '\n' + logEl.textContent;
+}
+let ws;
+function connect(i=0){
+  const host = hosts[i % hosts.length];
+  log(`接続: ${host}`);
+  ws = new WebSocket(host);
+  ws.onopen = () => {
+    statusEl.textContent = '接続済み';
+    statusEl.style.background = '#d8f7df';
+    log('WebSocket connected');
+    ws.send(JSON.stringify({method:'handshake', project_id:projectId, user:username}));
+    log('handshake送信');
+  };
+  ws.onmessage = e => {
+    for (const line of String(e.data).split('\n')) {
+      if (!line) continue;
+      try {
+        const msg = JSON.parse(line);
+        log('受信: ' + JSON.stringify(msg));
+        if (msg.method === 'set' && msg.name === '☁ score') scoreEl.textContent = msg.value;
+      } catch(err) {
+        log('JSON解析エラー: ' + err);
+      }
+    }
+  };
+  ws.onerror = () => log('WebSocket error');
+  ws.onclose = e => {
+    statusEl.textContent = '切断';
+    statusEl.style.background = '#ffe0e0';
+    log(`切断 code=${e.code}`);
+    setTimeout(()=>connect(i+1),1000);
+  };
+}
+connect();
+</script>
+</body>
+</html>
