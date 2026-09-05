@@ -12,9 +12,11 @@ body{font-family:system-ui,sans-serif;max-width:900px;margin:32px auto;padding:0
 .value{font-size:44px;font-weight:700;margin:10px 0}
 pre{background:#111;color:#eee;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;word-break:break-word;min-height:80px}
 .meta{display:grid;gap:6px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{padding:9px 10px;border:1px solid #bbb;border-radius:8px;font:inherit;min-width:180px}
+button{padding:9px 12px;border:1px solid #bbb;border-radius:8px;background:#fff;cursor:pointer;font:inherit}
 small{color:#666}
-button{padding:8px 12px;border:1px solid #bbb;border-radius:8px;background:#fff;cursor:pointer}
-@media (prefers-color-scheme:dark){body{background:#151515;color:#eee}.card{background:#222;border-color:#444}button{background:#222;color:#eee;border-color:#555}small{color:#aaa}}
+@media (prefers-color-scheme:dark){body{background:#151515;color:#eee}.card{background:#222;border-color:#444}button,input{background:#222;color:#eee;border-color:#555}small{color:#aaa}}
 </style>
 </head>
 <body>
@@ -33,6 +35,14 @@ button{padding:8px 12px;border:1px solid #bbb;border-radius:8px;background:#fff;
   <h2>☁ score</h2>
   <div id="score" class="value">—</div>
   <small id="lastUpdate">まだ更新を受信していません</small>
+</div>
+<div class="card">
+  <h2>☁ score を書き換える</h2>
+  <div class="controls">
+    <input id="scoreInput" type="text" inputmode="numeric" value="999" placeholder="例: 999">
+    <button id="setScore" type="button">書き込み</button>
+  </div>
+  <small>TurboWarp Cloudプロトコルの set メッセージを現在のWebSocket接続から送信します。</small>
 </div>
 <div class="card">
   <h2>受信ログ</h2>
@@ -55,6 +65,8 @@ const errorsEl = document.getElementById('errors');
 const scoreEl = document.getElementById('score');
 const lastUpdateEl = document.getElementById('lastUpdate');
 const hostEl = document.getElementById('host');
+const scoreInputEl = document.getElementById('scoreInput');
+const setScoreButton = document.getElementById('setScore');
 
 document.getElementById('projectId').textContent = projectId;
 document.getElementById('username').textContent = username;
@@ -85,6 +97,22 @@ function sendHandshake() {
     method: 'handshake',
     user: username,
     project_id: projectId
+  };
+  const raw = JSON.stringify(message);
+  ws.send(raw);
+  appendLog('送信: ' + raw);
+}
+
+function setCloudScore(value) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    appendError('☁ score の書き込みに失敗しました: WebSocketが接続されていません。');
+    return;
+  }
+
+  const message = {
+    method: 'set',
+    name: '☁ score',
+    value: String(value)
   };
   const raw = JSON.stringify(message);
   ws.send(raw);
@@ -162,6 +190,19 @@ document.getElementById('reconnect').addEventListener('click', () => {
     return;
   }
   connect();
+});
+
+setScoreButton.addEventListener('click', () => {
+  const value = scoreInputEl.value.trim();
+  if (!value) {
+    appendError('☁ score の書き込みを中止しました: 値が空です。');
+    return;
+  }
+  setCloudScore(value);
+});
+
+scoreInputEl.addEventListener('keydown', event => {
+  if (event.key === 'Enter') setCloudScore(scoreInputEl.value.trim());
 });
 
 connect();
